@@ -10,12 +10,12 @@
   
   !define COMPANY_DIR_NAME	"Whirling Chair"
   !define APP_NAME "Loom Previewer"
-  !define VERSION "0.0.1"
+  !define VERSION "0.0.2"
   !define APP_EXECUTABLE "LoomPreview.exe"
   
   ;Name and file
   Name "Loom Preview (${VERSION})"
-  OutFile "LoomPreview.${VERSION}.exe"
+  OutFile "LoomPreviewInstaller.${VERSION}.exe"
 
   ;Default installation folder
   InstallDir "$PROGRAMFILES\${COMPANY_DIR_NAME}\${APP_NAME}"

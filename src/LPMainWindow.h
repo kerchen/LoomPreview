@@ -21,6 +21,9 @@
 
 #include "ui_MainWindow.h"
 
+#include "LPImager.h"
+
+
 #include <QDir>
 #include <QFileInfo>
 #include <QBitArray>
@@ -65,6 +68,8 @@ private slots:
    void onBlueChannelMaskChanged();
    void onGrayChannelMaskChanged();
 
+   void onBlockSizeLineEditChanged();
+   void onBlockSizeSliderChanged(int);
    void onWidthLineEditChanged();
    void onWidthSliderChanged(int);
    void onOffsetLineEditChanged();
@@ -78,27 +83,19 @@ private:
 
    void regenerate( const QString& filename = QString() );
 
-   uint pixelRGB( unsigned int idx );
-   uint pixelRBG( unsigned int idx );
-   uint pixelGBR( unsigned int idx );
-   uint pixelGRB( unsigned int idx );
-   uint pixelBGR( unsigned int idx );
-   uint pixelBRG( unsigned int idx );
-   uint pixelGray( unsigned int idx );
-
-   typedef uint (LPUI::MainWindow::*PixelFn)(unsigned int);
-   PixelFn   m_pixelFunc;
-
    /// The Designer-generated user interface object.
    Ui::MainWindow		m_ui;
 
-   QLabel*  m_previewImageLabel;
+   QFrame*  m_imagePreviewFrame;
+   std::vector< QLabel* >  m_displayedLabels;
+
+   LP::Imager*  m_imager;
 
    QString    m_sourceFilename;
-   QByteArray m_inputData;
-   QBitArray  m_inputBits;
 
    unsigned char  m_redBitCount, m_greenBitCount, m_blueBitCount, m_grayBitCount;
+
+   LP::Imager::ChannelOrder   m_channelOrder;
 }; 
 
 }	// namespace LDUI

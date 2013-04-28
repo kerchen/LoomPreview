@@ -24,13 +24,16 @@
 #include <QLabel>
 #include <QCloseEvent>
 #include <QFileDialog>
+#include <QProgressDialog>
 #include <QTextStream>
+#include <QThread>
 #include <QShortcut>
 #include <QTime>
 #include <QFileInfo>
 #include <QSettings>
 
 #include "LPMainWindow.h"
+#include "LPImager.h"
 
 #include <assert.h>
 #include <math.h>
@@ -39,17 +42,39 @@
 
 namespace LPUI
 {
+#if 0
+   class DataLoader : public QThread
+   {
+   public:
+      DataLoader( LP::Imager* imgr, const QString& filename ) 
+         : QThread() 
+         , m_filename( filename )
+         , m_imager( imgr )
+      { }
+
+      virtual void run()
+      {
+         m_imager->load( m_filename );
+      }
+
+   private:
+      QString     m_filename;
+      LP::Imager* m_imager;
+   };
+#endif
 
 
 MainWindow::MainWindow(QWidget *parent)
 : QMainWindow( parent )
-, m_pixelFunc( &LPUI::MainWindow::pixelRGB )
+, m_imager(NULL)
+, m_channelOrder( LP::Imager::RGB )
 {
    m_ui.setupUi(this);
 
-   m_previewImageLabel = new QLabel();
+   m_imagePreviewFrame = new QFrame();
+   m_imagePreviewFrame->setLayout( new QVBoxLayout( m_imagePreviewFrame ) );
 
-   m_ui.m_previewScrollArea->setWidget(m_previewImageLabel);
+   m_ui.m_previewScrollArea->setWidget(m_imagePreviewFrame);
 
    m_redBitCount = 3;
    m_greenBitCount = 2;
@@ -86,6 +111,14 @@ MainWindow::MainWindow(QWidget *parent)
    connect(m_ui.m_grayBitsSpinBox,
       SIGNAL( valueChanged(int) ),
       SLOT(onGrayChannelMaskChanged()));
+
+   connect(m_ui.m_blockSizeLineEdit,
+      SIGNAL( textEdited(const QString&) ),
+      SLOT(onBlockSizeLineEditChanged()));
+
+   connect(m_ui.m_blockSizeSlider,
+      SIGNAL( valueChanged(int) ),
+      SLOT(onBlockSizeSliderChanged(int)));
 
    connect(m_ui.m_widthLineEdit,
       SIGNAL( textEdited(const QString&) ),
@@ -158,43 +191,18 @@ void MainWindow::onOpenActionTriggered()
 
    if ( ! filename.isEmpty() )
    {
-      QFile f( filename );
-      QFileInfo   fi( filename );
-      int   maxSize( INT_MAX / 8 );
+      LP::Imager*  newImg( new LP::Imager() );
+      // DataLoader   loader( newImg, filename );
+      if ( newImg->load( filename, m_ui.m_blockSizeSlider->value() * 1024 * 1024 ) )
+      {
+         QFileInfo   fi( filename );
 
-      if ( fi.size() > maxSize )
-      {
-         // Currently we're limited by the size of the index type (signed int) of
-         // QBitArray's accessor functions.
-         QMessageBox::critical( this, tr("File Too Big"),
-               tr("File too big.  Max size is %1 MB (%2 bytes). Sorry!")
-                  .arg( maxSize / (1024 * 1024) )
-                  .arg( maxSize ) );
-         return;
-      }
-      if ( f.open( QIODevice::ReadOnly ) )
-      {
-         m_inputData = f.readAll();
-         f.close();
+         delete m_imager;
+         m_imager = newImg;
          m_sourceFilename = filename;
          m_ui.m_sourceFilenameLabel->setText( filename );
-
-         m_ui.m_offsetSlider->setMaximum( m_inputData.size() - 1 );
-         m_inputBits.resize( m_inputData.size() * 8 );
-
-         for ( int i = 0; i < m_inputData.size(); ++i )
-         {
-            unsigned int byte( m_inputData[i] );
-
-            for ( int j = 0; j < 8; ++j )
-               m_inputBits.setBit( i * 8 + j, ( byte >> j ) & 1 );
-         }
-         recomputePreview();
-      }
-      else
-      {
-         QMessageBox::critical( this, tr("File Open Failed"), 
-               tr("Could not open file.  Sorry.") );
+         m_ui.m_sourceSizeLabel->setText( QString::number( fi.size() ) + tr(" bytes") );
+         regenerate();
       }
    }
 }
@@ -214,13 +222,13 @@ void MainWindow::onExportActionTriggered()
 
    filename = fi.absolutePath() + "/" + fi.completeBaseName() + ".tiff";
    filename = QFileDialog::getSaveFileName( this, 
-                           tr("Specify output file"), 
+                           tr("Specify base output filename"), 
                            filename,
                            tr("TIFF Files (*.tiff)") );
 
    if ( ! filename.isEmpty() )
    {
-      regenerate(filename);
+      regenerate( filename );
    }
 }
 
@@ -228,19 +236,19 @@ void MainWindow::onExportActionTriggered()
 void MainWindow::onChannelOrderChanged()
 {
    if ( m_ui.m_rgbChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelRGB;
+      m_channelOrder = LP::Imager::RGB;
    else if ( m_ui.m_rbgChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelRBG;
+      m_channelOrder = LP::Imager::RBG;
    else if ( m_ui.m_gbrChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelGBR;
+      m_channelOrder = LP::Imager::GBR;
    else if ( m_ui.m_grbChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelGRB;
+      m_channelOrder = LP::Imager::GRB;
    else if ( m_ui.m_brgChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelBRG;
+      m_channelOrder = LP::Imager::BRG;
    else if ( m_ui.m_bgrChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelBGR;
+      m_channelOrder = LP::Imager::BGR;
    else if ( m_ui.m_grayChOrderRadioButton->isChecked() )
-      m_pixelFunc = &LPUI::MainWindow::pixelGray;
+      m_channelOrder = LP::Imager::Grayscale;
 
    recomputePreview();
 }
@@ -274,6 +282,35 @@ void MainWindow::onGrayChannelMaskChanged()
 {
    recomputePreview();
 }
+
+
+void MainWindow::onBlockSizeLineEditChanged()
+{
+   int bs( m_ui.m_blockSizeLineEdit->text().toInt() );
+
+   if ( bs < m_ui.m_blockSizeSlider->minimum() )
+   {
+      bs = m_ui.m_blockSizeSlider->minimum();
+      m_ui.m_blockSizeLineEdit->setText( QString::number( bs ) );
+   }
+   else if ( bs > m_ui.m_blockSizeSlider->maximum() )
+   {
+      bs = m_ui.m_blockSizeSlider->maximum();
+      m_ui.m_blockSizeLineEdit->setText( QString::number( bs ) );
+   }
+
+   m_ui.m_blockSizeSlider->setValue( bs );
+}
+
+
+
+
+void MainWindow::onBlockSizeSliderChanged(int val)
+{
+   m_ui.m_blockSizeLineEdit->setText( QString::number( val ) );
+}
+
+
 
 
 
@@ -342,160 +379,78 @@ void MainWindow::recomputePreview()
 
 void MainWindow::regenerate( const QString& filename )
 {
-   int width( m_ui.m_widthLineEdit->text().toInt() );
+   unsigned int width( m_ui.m_widthLineEdit->text().toInt() );
    if ( width < 1 )
       width = 1;
-   int offset( m_ui.m_offsetLineEdit->text().toInt() );
+   unsigned int offset( m_ui.m_offsetLineEdit->text().toInt() );
 
    m_redBitCount = m_ui.m_redBitsSpinBox->value();
    m_greenBitCount = m_ui.m_greenBitsSpinBox->value();
    m_blueBitCount = m_ui.m_blueBitsSpinBox->value();
    m_grayBitCount = m_ui.m_grayBitsSpinBox->value();
 
-   int bitsPerPixel;
-  
-   if ( m_ui.m_grayChOrderRadioButton->isChecked() )
+   if ( m_imager )
    {
-      bitsPerPixel = m_grayBitCount;
-      if ( bitsPerPixel < 1 )
-         bitsPerPixel = m_grayBitCount = 1;
-   }
-   else
-   {
-      bitsPerPixel = m_redBitCount + m_greenBitCount + m_blueBitCount;
+      std::vector< QImage* >   imgVec;
 
-      if ( bitsPerPixel < 1 )
-         bitsPerPixel = m_redBitCount = 1;
-   }
+      m_imager->regenerate( m_redBitCount, m_greenBitCount, 
+            m_blueBitCount, m_grayBitCount, m_channelOrder,
+            width, offset, imgVec );
 
-   int height( 8 * ( m_inputData.size() - offset ) / ( width * bitsPerPixel ) );
-   QImage dst_img( width, height, QImage::Format_RGB32 );
-   int    i, j;
-
-   i = 0;
-   j = 0;
-
-   for ( int di = offset * 8, limit = m_inputBits.size(); di+bitsPerPixel < limit; di+=bitsPerPixel )
-   {
-      dst_img.setPixel( i, j, (this->*m_pixelFunc)( di ) ); 
-      if ( ++i == width )
+      QLayout* layout = m_imagePreviewFrame->layout();
+      for ( size_t i = 0; i < m_displayedLabels.size(); ++i )
       {
-         i = 0;
-         ++j;
+         layout->removeWidget( m_displayedLabels[i] );
+         delete m_displayedLabels[i];
       }
-   }
+      m_displayedLabels.clear();
 
-   if ( ! filename.isEmpty() )
-   {
-      if ( ! dst_img.save( filename, "TIFF" ) )
+      delete layout;
+
+      layout = new QVBoxLayout( m_imagePreviewFrame );
+      layout->setSpacing( 1 );
+
+      for ( size_t i = 0; i < imgVec.size(); ++i )
       {
-         QMessageBox::critical( this, tr("Save Failed"),
-               tr("Could not save file.") );
+         QLabel*  stats = new QLabel( m_imagePreviewFrame );
+         stats->setText( tr("Image %1 (of %2): %3 x %4")
+                           .arg( i+1 )
+                           .arg( imgVec.size() )
+                           .arg( imgVec[i]->width() )
+                           .arg( imgVec[i]->height() ) );
+         layout->addWidget( stats ); 
+         m_displayedLabels.push_back( stats );
+
+         QLabel*  image( new QLabel( m_imagePreviewFrame ) );
+         image->setPixmap( QPixmap::fromImage( *imgVec[i] ) );
+         layout->addWidget( image );
+         m_displayedLabels.push_back( image );
       }
+      m_imagePreviewFrame->setLayout( layout );
+
+      if ( ! filename.isEmpty() )
+      {
+         QFileInfo   fi( filename );
+
+         for ( size_t i = 0; i < imgVec.size(); ++i )
+         {
+            QString  fname( fi.absolutePath() + "/" + fi.completeBaseName() + 
+                  QString::number(i+1) + "_of_" + QString::number(imgVec.size()) + "." +
+                  fi.suffix() );
+
+            if ( ! imgVec[i]->save( fname, "TIFF" ) )
+            {
+               QMessageBox::critical( this, tr("Save Failed"),
+                     tr("Could not save file.") );
+            }
+         }
+      }
+
+      for ( size_t i = 0; i < imgVec.size(); ++i )
+         delete imgVec[i];
+      imgVec.clear();
    }
-
-   m_previewImageLabel->setPixmap( QPixmap::fromImage(dst_img));
 }
-
-
-unsigned char mapBits( QBitArray& ba, unsigned int& idx, unsigned int bitCount )
-{
-   if ( ! bitCount )
-      return 0;
-
-   float scale( 255.0 / ( pow( 2.0f, (int) bitCount ) - 1 ) );
-   int val( 0 );
-
-   while( bitCount-- )
-   {
-      val *= 2;
-      if ( ba.testBit(idx++) )
-         val += 1;
-   }
-
-   return val * scale;
-}
-
-
-uint MainWindow::pixelRGB( unsigned int idx )
-{
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelRBG( unsigned int idx )
-{
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelGBR( unsigned int idx )
-{
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelGRB( unsigned int idx )
-{
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelBGR( unsigned int idx )
-{
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelBRG( unsigned int idx )
-{
-   unsigned char b( mapBits( m_inputBits, idx, m_blueBitCount ) );
-   unsigned char r( mapBits( m_inputBits, idx, m_redBitCount ) );
-   unsigned char g( mapBits( m_inputBits, idx, m_greenBitCount ) );
-
-   return qRgb( r, g, b );
-}
-
-
-
-
-uint MainWindow::pixelGray( unsigned int idx )
-{
-   unsigned char gr( mapBits( m_inputBits, idx, m_grayBitCount ) );
-   return qRgb( gr, gr, gr );
-}
-
-
 
 
 
