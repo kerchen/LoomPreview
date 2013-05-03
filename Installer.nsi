@@ -65,6 +65,10 @@ Section
   File $%QT_DIR%\bin\QtCore4.dll
   File $%QT_DIR%\bin\QtGui4.dll
 
+  CreateDirectory $INSTDIR\imageformats
+  SetOutPath $INSTDIR\imageformats
+  File $%QT_DIR%\plugins\imageformats\qtiff4.dll
+
   ;Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
@@ -84,12 +88,13 @@ Section "Uninstall"
 
   Delete $INSTDIR\*.exe
   Delete $INSTDIR\*.dll
+  Delete $INSTDIR\imageformats\*.dll
   Delete $INSTDIR\*.txt
   
   Delete $INSTDIR\UI\*.*
   RMDir /r $INSTDIR\UI
 
-  RMDir "$INSTDIR"
+  RMDir /r "$INSTDIR"
   RMDir "$PROGRAMFILES\${COMPANY_DIR_NAME}"
 
   Delete "$SMPROGRAMS\${COMPANY_DIR_NAME}\${APP_NAME}\LoomPreview.lnk"
