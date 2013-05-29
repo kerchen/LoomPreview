@@ -69,16 +69,18 @@ public:
 private:
    void unload();
 
-   unsigned char mapBits( int bitCount, unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelRGB( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelRBG( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelGBR( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelGRB( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelBGR( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelBRG( unsigned int& di, unsigned int& bai, unsigned int& limit );
-   uint pixelGray( unsigned int& di, unsigned int& bai, unsigned int& limit );
+   typedef std::vector< QBitArray* >::size_type BitArraySizeType;
 
-   typedef uint (LP::Imager::*PixelFn)(unsigned int&, unsigned int&, unsigned int&);
+   unsigned char mapBits( int bitCount, unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelRGB( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelRBG( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelGBR( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelGRB( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelBGR( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelBRG( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+   uint pixelGray( unsigned int& di, BitArraySizeType& bai, unsigned int& limit );
+
+   typedef uint (LP::Imager::*PixelFn)(unsigned int&, BitArraySizeType&, unsigned int&);
    PixelFn   m_pixelFunc;
 
    std::vector< QBitArray* >  m_bitArrayVec;

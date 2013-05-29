@@ -124,7 +124,7 @@ namespace LP
             m_bitsPerPixel = m_grayBitCount = 1;
       }
 
-      size_t bai = 0;
+      BitArraySizeType bai = 0;
 
       // Skip bytes as dictated by offset
       if ( offset > 0 )
@@ -191,7 +191,7 @@ namespace LP
    }
 
 
-   unsigned char Imager::mapBits( int bitCount, unsigned int& di, unsigned int& bai, unsigned int& limit )
+   unsigned char Imager::mapBits( int bitCount, unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       if ( ! bitCount )
          return 0;
@@ -220,7 +220,7 @@ namespace LP
    }
 
 
-   uint Imager::pixelRGB( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelRGB( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char r( mapBits( m_redBitCount, di, bai, limit ) );
       unsigned char g( mapBits( m_greenBitCount, di, bai, limit ) );
@@ -232,7 +232,7 @@ namespace LP
 
 
 
-   uint Imager::pixelRBG( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelRBG( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char r( mapBits( m_redBitCount, di, bai, limit ) );
       unsigned char b( mapBits( m_blueBitCount, di, bai, limit ) );
@@ -244,7 +244,7 @@ namespace LP
 
 
 
-   uint Imager::pixelGBR( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelGBR( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char g( mapBits( m_greenBitCount, di, bai, limit ) );
       unsigned char b( mapBits( m_blueBitCount, di, bai, limit ) );
@@ -256,7 +256,7 @@ namespace LP
 
 
 
-   uint Imager::pixelGRB( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelGRB( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char g( mapBits( m_greenBitCount, di, bai, limit ) );
       unsigned char r( mapBits( m_redBitCount, di, bai, limit ) );
@@ -268,7 +268,7 @@ namespace LP
 
 
 
-   uint Imager::pixelBGR( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelBGR( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char b( mapBits( m_blueBitCount, di, bai, limit ) );
       unsigned char g( mapBits( m_greenBitCount, di, bai, limit ) );
@@ -280,7 +280,7 @@ namespace LP
 
 
 
-   uint Imager::pixelBRG( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelBRG( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char b( mapBits( m_blueBitCount, di, bai, limit ) );
       unsigned char r( mapBits( m_redBitCount, di, bai, limit ) );
@@ -292,7 +292,7 @@ namespace LP
 
 
 
-   uint Imager::pixelGray( unsigned int& di, unsigned int& bai, unsigned int& limit )
+   uint Imager::pixelGray( unsigned int& di, BitArraySizeType& bai, unsigned int& limit )
    {
       unsigned char gr( mapBits( m_grayBitCount, di, bai, limit ) );
       return qRgb( gr, gr, gr );
